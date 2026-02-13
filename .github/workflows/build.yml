@@ -35,51 +35,22 @@ jobs:
             libtinfo5 \
             cmake \
             libffi-dev \
-            libssl-dev \
-            libltdl-dev \
-            patchelf \
-            wget \
-            curl
+            libssl-dev
       
-      - name: Install Cython and Buildozer
+      - name: Install Buildozer
         run: |
           pip install --upgrade pip
-          pip install cython==0.29.36
-          pip install buildozer
-      
-      - name: Create buildozer.spec
-        run: |
-          buildozer init
-          # تعديل الإعدادات
-          sed -i 's/title = .*/title = Physics Calculator/' buildozer.spec
-          sed -i 's/package.name = .*/package.name = physicscalc/' buildozer.spec
-          sed -i 's/package.domain = .*/package.domain = org.example/' buildozer.spec
-          sed -i 's/requirements = .*/requirements = python3,kivy==2.1.0/' buildozer.spec
-          sed -i 's/android.api = .*/android.api = 31/' buildozer.spec
-          sed -i 's/android.minapi = .*/android.minapi = 21/' buildozer.spec
-          sed -i 's/android.ndk = .*/android.ndk = 25b/' buildozer.spec
-          sed -i 's/android.sdk = .*/android.sdk = 31/' buildozer.spec
-          sed -i 's/#android.accept_sdk_license = .*/android.accept_sdk_license = True/' buildozer.spec
-          sed -i 's/#android.permissions = .*/android.permissions = INTERNET/' buildozer.spec
+          pip install cython buildozer
       
       - name: Build APK
         run: |
-          # تجاوز مشكلة chown
           export USER=root
-          buildozer -v android debug
+          buildozer init
+          buildozer android debug
         timeout-minutes: 60
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: physics-calculator-apk
+          name: physics-calculator
           path: bin/*.apk
-          if-no-files-found: error
-          retention-days: 30
-      
-      - name: Display APK info
-        if: success()
-        run: |
-          echo "✅ Build completed successfully!"
-          echo "APK files:"
-          ls -la bin/
