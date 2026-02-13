@@ -5,7 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # للسماح بالتشغيل اليدوي
+  workflow_dispatch:
 
 jobs:
   build:
@@ -47,7 +47,7 @@ jobs:
         pip install cython==0.29.36
         pip install buildozer
         
-    - name: Create buildozer spec file
+    - name: Create buildozer.spec file
       run: |
         cat > buildozer.spec << 'EOF'
 [app]
@@ -72,18 +72,13 @@ android.api = 33
 android.minapi = 21
 android.ndk = 25b
 android.sdk = 33
-android.gradle_dependencies = 'androidx.core:core:1.9.0'
+android.gradle_dependencies = androidx.core:core:1.9.0
 
 [android]
 p4a.source_dir = 
 p4a.branch = develop
 android.accept_sdk_license = True
-
-[[app.permissions]]
 android.permissions = INTERNET
-
-[buildozer.spec]
-# لا تقم بتعديل هذا القسم
 EOF
 
     - name: Build with buildozer
