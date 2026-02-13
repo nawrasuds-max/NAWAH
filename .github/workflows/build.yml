@@ -1,40 +1,112 @@
 name: Build Android APK
+
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
+  workflow_dispatch:  # للسماح بالتشغيل اليدوي
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        
+    - name: Install system dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          git \
+          zip \
+          unzip \
+          openjdk-17-jdk \
+          python3-pip \
+          autoconf \
+          libtool \
+          pkg-config \
+          zlib1g-dev \
+          libncurses5-dev \
+          libncursesw5-dev \
+          libtinfo5 \
+          cmake \
+          libffi-dev \
+          libssl-dev \
+          libltdl-dev
+          
+    - name: Install Cython and buildozer
+      run: |
+        pip install --upgrade pip
+        pip install cython==0.29.36
+        pip install buildozer
+        
+    - name: Create buildozer spec file
+      run: |
+        cat > buildozer.spec << 'EOF'
+[app]
+title = Physics Calculator
+package.name = physicscalc
+package.domain = org.example
+source.dir = .
+source.include_exts = py,png,jpg,kv,atlas,txt
+version = 0.1
+requirements = python3,kivy==2.2.1
+orientation = portrait
+osx.python_version = 3
+osx.kivy_version = 2.2.1
+fullscreen = 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.9'
+[buildozer]
+log_level = 2
+warn_on_root = 1
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libtool-bin zip unzip autoconf automake pkg-config libffi-dev libssl-dev
-          python -m pip install --upgrade pip
-          pip install buildozer cython==0.29.33 kivy
+[requirements]
+android.api = 33
+android.minapi = 21
+android.ndk = 25b
+android.sdk = 33
+android.gradle_dependencies = 'androidx.core:core:1.9.0'
 
-      - name: Build with Buildozer
-        run: |
-          # تأكد من وجود ملف buildozer.spec في المستودع
-          # هذا الأمر سيقوم بالبناء للمعمارية التي حددناها سابقاً
-          buildozer android debug
-        env:
-          ACCEPT_SDK_LICENSE: "yes"
+[android]
+p4a.source_dir = 
+p4a.branch = develop
+android.accept_sdk_license = True
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v2
-        with:
-          name: my-calculator-app
-          path: bin/*.apk
+[[app.permissions]]
+android.permissions = INTERNET
+
+[buildozer.spec]
+# لا تقم بتعديل هذا القسم
+EOF
+
+    - name: Build with buildozer
+      run: |
+        buildozer android debug
+      timeout-minutes: 60
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: physics-calculator-apk
+        path: bin/*.apk
+        if-no-files-found: error
+        retention-days: 30
+
+    - name: Get APK info
+      if: success()
+      run: |
+        echo "✅ Build completed successfully!"
+        echo "APK files in bin directory:"
+        ls -la bin/
+        echo ""
+        if [ -f bin/*.apk ]; then
+          APK_SIZE=$(du -h bin/*.apk | cut -f1)
+          echo "📱 APK Size: $APK_SIZE"
+        fi
