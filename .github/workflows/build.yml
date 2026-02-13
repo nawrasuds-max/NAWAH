@@ -9,24 +9,135 @@ jobs:
   build:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
       
-      - name: Install dependencies
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+      
+      - name: Install system dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip openjdk-11-jdk
+          sudo apt install -y \
+            git \
+            zip \
+            unzip \
+            openjdk-11-jdk \
+            python3-pip \
+            autoconf \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            cmake \
+            libffi-dev \
+            libssl-dev \
+            patchelf \
+            wget \
+            curl
+      
+      - name: Install Python packages
+        run: |
           pip install --upgrade pip
-          pip install cython buildozer
+          pip install cython==0.29.30
+          pip install buildozer==1.4.0
+      
+      - name: Create buildozer.spec
+        run: |
+          # إنشاء ملف buildozer.spec من البداية
+          cat > buildozer.spec << 'EOF'
+[app]
+title = Physics Calculator
+package.name = physicscalc
+package.domain = org.example
+source.dir = .
+source.include_exts = py,png,jpg,kv,atlas,txt
+version = 0.1
+requirements = python3,kivy==2.0.0
+orientation = portrait
+osx.python_version = 3
+osx.kivy_version = 2.0.0
+fullscreen = 0
+
+[buildozer]
+log_level = 2
+warn_on_root = 1
+
+[requirements]
+android.api = 29
+android.minapi = 21
+android.ndk = 21e
+android.sdk = 29
+android.gradle_dependencies = androidx.core:core:1.6.0
+
+[android]
+p4a.source_dir = 
+p4a.branch = master
+android.accept_sdk_license = True
+android.permissions = INTERNET
+EOF
+          
+          echo "✅ buildozer.spec created successfully"
+          cat buildozer.spec
+      
+      - name: Verify main.py exists
+        run: |
+          if [ -f "main.py" ]; then
+            echo "✅ main.py found"
+          else
+            echo "❌ main.py not found! Renaming calphy.py to main.py"
+            if [ -f "calphy.py" ]; then
+              mv calphy.py main.py
+              echo "✅ Renamed calphy.py to main.py"
+            else
+              echo "❌ No main.py or calphy.py found"
+              exit 1
+            fi
+          fi
       
       - name: Build APK
         run: |
           export USER=root
-          buildozer init
-          sed -i 's/requirements = .*/requirements = python3,kivy/' buildozer.spec
+          export BUILDOZER_WARN_ON_ROOT=0
+          echo "🚀 Starting APK build (this may take 20-40 minutes)..."
           buildozer android debug
-          
+        timeout-minutes: 60
+        continue-on-error: false
+      
+      - name: Verify APK
+        run: |
+          if [ -f bin/*.apk ]; then
+            echo "✅ APK built successfully!"
+            echo "📱 APK details:"
+            ls -la bin/
+            APK_SIZE=$(du -h bin/*.apk | cut -f1)
+            echo "📦 APK Size: $APK_SIZE"
+          else
+            echo "❌ APK not found in bin directory"
+            echo "📁 Contents of bin:"
+            ls -la bin/ || echo "bin directory empty or not found"
+            echo "📁 Checking build logs:"
+            find . -name "*.log" -type f | head -5
+          fi
+      
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: physics-calculator
+          name: physics-calculator-apk
           path: bin/*.apk
+          if-no-files-found: warn
+          retention-days: 30
+      
+      - name: Final status
+        if: always()
+        run: |
+          echo "====================="
+          echo "🏁 Build completed!"
+          echo "====================="
+          if [ -f bin/*.apk ]; then
+            echo "✅ SUCCESS: APK is ready for download"
+          else
+            echo "❌ FAILED: APK was not created"
+          fi
