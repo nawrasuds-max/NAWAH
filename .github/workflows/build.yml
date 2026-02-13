@@ -9,32 +9,52 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
       
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-          
-      - name: Install dependencies
+      
+      - name: Install system dependencies
         run: |
           sudo apt update
-          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip
-          pip install buildozer cython
-          
-      - name: Build with Buildozer
+          sudo apt install -y \
+            git \
+            zip \
+            unzip \
+            openjdk-17-jdk \
+            python3-pip \
+            autoconf \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libtinfo5 \
+            cmake \
+            libffi-dev \
+            libssl-dev \
+            patchelf
+      
+      - name: Install Buildozer
+        run: |
+          pip install --upgrade pip
+          pip install cython==0.29.36
+          pip install buildozer
+      
+      - name: Build APK
         run: |
           export USER=root
-          echo "[app]" > buildozer.spec
-          echo "title = Physics Calculator" >> buildozer.spec
-          echo "package.name = physicscalc" >> buildozer.spec
-          echo "requirements = python3,kivy==2.1.0" >> buildozer.spec
-          echo "[android]" >> buildozer.spec
-          echo "android.permissions = INTERNET" >> buildozer.spec
+          # إذا كان ملف buildozer.spec موجود مسبقاً، استخدمه مباشرة
           buildozer android debug
-          
+        timeout-minutes: 60
+      
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: physics-calculator
+          name: physics-calculator-apk
           path: bin/*.apk
+          if-no-files-found: error
+          retention-days: 30
