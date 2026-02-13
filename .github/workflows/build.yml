@@ -27,7 +27,7 @@ jobs:
           git \
           zip \
           unzip \
-          openjdk-11-jdk \
+          openjdk-17-jdk \
           python3-pip \
           autoconf \
           libtool \
@@ -40,27 +40,63 @@ jobs:
           libffi-dev \
           libssl-dev \
           libltdl-dev \
-          wget
+          wget \
+          patchelf
           
-    - name: Install buildozer and dependencies
+    - name: Install buildozer
       run: |
         pip install --upgrade pip
         pip install cython
         pip install buildozer
         
+    - name: Create buildozer.spec for main.py
+      run: |
+        cat > buildozer.spec << 'EOF'
+[app]
+title = Physics Calculator
+package.name = physicscalc
+package.domain = org.example
+source.dir = .
+source.include_exts = py,png,jpg,kv,atlas,txt
+version = 0.1
+requirements = python3,kivy==2.1.0
+orientation = portrait
+osx.python_version = 3
+osx.kivy_version = 2.1.0
+fullscreen = 0
+
+[buildozer]
+log_level = 2
+warn_on_root = 1
+
+[requirements]
+android.api = 31
+android.minapi = 21
+android.ndk = 25b
+android.sdk = 31
+android.gradle_dependencies = 'androidx.core:core:1.7.0'
+
+[android]
+p4a.source_dir = 
+p4a.branch = develop
+android.accept_sdk_license = True
+android.permissions = INTERNET
+EOF
+
+    - name: Verify main.py exists
+      run: |
+        if [ -f "main.py" ]; then
+          echo "✅ main.py found"
+          ls -la main.py
+        else
+          echo "❌ main.py not found!"
+          echo "Files in directory:"
+          ls -la
+          exit 1
+        fi
+        
     - name: Build APK
       run: |
-        buildozer init
-        # تعديل ملف buildozer.spec
-        sed -i 's/title =.*/title = Physics Calculator/' buildozer.spec
-        sed -i 's/package.name =.*/package.name = physicscalc/' buildozer.spec
-        sed -i 's/package.domain =.*/package.domain = org.example/' buildozer.spec
-        sed -i 's/requirements =.*/requirements = python3,kivy==2.1.0/' buildozer.spec
-        sed -i 's/android.api =.*/android.api = 30/' buildozer.spec
-        sed -i 's/android.minapi =.*/android.minapi = 21/' buildozer.spec
-        sed -i 's/android.ndk =.*/android.ndk = 23b/' buildozer.spec
-        sed -i 's/android.sdk =.*/android.sdk = 30/' buildozer.spec
-        # بناء التطبيق
         buildozer -v android debug
       timeout-minutes: 60
 
@@ -68,6 +104,6 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: physics-calculator-apk
-        path: bin/*.debug.apk
+        path: bin/*.apk
         if-no-files-found: error
         retention-days: 30
